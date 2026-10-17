@@ -208,11 +208,11 @@
             const currentMember = members.find(person => person.user_id === member.user_id);
             if (!currentMember) throw new Error("Your team membership changed. Sign out and sign in again.");
             member = { ...member, role: currentMember.role };
-            $("workspace-mode").textContent = isManager() ? "MANAGER" : "MEMBER";
+            if ($("workspace-mode")) $("workspace-mode").textContent = isManager() ? "MANAGER" : "MEMBER";
             items = records;
             ready = true;
             renderMembers();
-            notice("Team plan refreshed. Refresh again to see teammates' latest changes.");
+            notice("");
         } catch (error) {
             if (requestEpoch !== epoch) return;
             notice(["PGRST205", "42P01"].includes(error.code) ? "Tasks and resources aren't set up yet. Ask the project owner to finish management setup. Your notebook is still available." : error.message, true);
@@ -316,8 +316,8 @@
         selectedDay = "";
         members = []; items = []; documents = []; ready = false; busy = false;
         dialog.close(); editing = null; formDirty = false;
-        $("team-name").textContent = member?.teamName || "Team workspace";
-        $("workspace-mode").textContent = member ? (isManager() ? "MANAGER" : "MEMBER") : "Shared workspace";
+        if ($("team-name")) $("team-name").textContent = member?.teamName || "Team workspace";
+        if ($("workspace-mode")) $("workspace-mode").textContent = member ? (isManager() ? "MANAGER" : "MEMBER") : "Shared workspace";
         notice(""); renderMembers(); render();
         if (member) refresh();
     });

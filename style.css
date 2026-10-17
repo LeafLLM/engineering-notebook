@@ -185,3 +185,42 @@ fieldset { border:0; padding:0; margin:0; min-width:0; }
 #editor-toolbar.ql-toolbar { top:68px; }
 /* Hidden labels stay inside their containing block, including scrollable tables. */
 .visually-hidden { top:0; left:0; }
+/* 7. Gentle feedback. Animate named properties so layout and typing stay immediate. */
+:root { --motion-fast:140ms; --motion-calm:220ms; --motion-ease:cubic-bezier(.2,.7,.3,1); }
+.notebook-button,.text-button,.refresh-documents,.icon-button,
+.calendar-controls button,.calendar-day,.document-list-item,.recent-entry,.deadline-item {
+    transition:background-color var(--motion-fast) ease, color var(--motion-fast) ease,
+        border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease,
+        transform var(--motion-fast) var(--motion-ease);
+}
+.navbar a { transition:color var(--motion-fast) ease, border-color var(--motion-calm) ease; }
+.navbar a:hover { color:var(--accent); text-decoration:none; }
+input,select,textarea { transition:border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease; }
+input:focus,select:focus,textarea:focus { border-color:#92b18c; box-shadow:0 0 0 3px #21694f0d; }
+.document-paper { transition:border-color var(--motion-calm) ease, box-shadow var(--motion-calm) ease; }
+.document-paper:focus-within { border-color:#92b18c; box-shadow:0 4px 18px #233d310d; }
+.resource-card { transition:border-color var(--motion-calm) ease, box-shadow var(--motion-calm) ease; }
+.resource-card:focus-within { border-color:#92b18c; box-shadow:0 5px 18px #233d310d; }
+.task-table tbody tr { transition:background-color var(--motion-fast) ease; }
+.deadline-item strong { transition:color var(--motion-fast) ease; }
+/* Hover movement is only for precise pointers; touch controls stay steady. */
+@media (hover:hover) and (pointer:fine) {
+    .notebook-button:not(:disabled):hover { transform:translateY(-1px); box-shadow:0 3px 8px #233d3110; }
+    .resource-card:hover { border-color:#bdceba; box-shadow:0 5px 18px #233d310d; }
+    .task-table tbody tr:hover { background-color:#f7f9f4; }
+    .deadline-item:not(:disabled):hover { background-color:#edf2e7; }
+    .icon-button:not(:disabled):hover { color:var(--accent); background-color:var(--accent-light); border-radius:5px; }
+}
+.notebook-button:not(:disabled):active,.calendar-day:not(:disabled):active { transform:translateY(1px); }
+/* Keep the section itself stationary so sticky editor controls retain their anchor. */
+.section:not([hidden]) { animation:section-arrive var(--motion-calm) ease-out; }
+dialog[open] { animation:dialog-arrive var(--motion-calm) var(--motion-ease); }
+dialog[open]::backdrop { animation:section-arrive var(--motion-calm) ease-out; }
+@keyframes section-arrive { from { opacity:0; } to { opacity:1; } }
+@keyframes dialog-arrive { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+/* Respect the device preference: all controls and content appear immediately. */
+@media (prefers-reduced-motion:reduce) {
+    *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }
+    .notebook-button:not(:disabled):hover,.notebook-button:not(:disabled):active,
+    .calendar-day:not(:disabled):active { transform:none; }
+}

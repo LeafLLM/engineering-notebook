@@ -404,6 +404,7 @@
     });
     window.addEventListener("notebook:new-entry", () => navigate(() => {
         if (!membership) return;
+        byId("document-archive-filter").value = "active";
         location.hash = "documenting";
         resetDraft();
         rememberDocument(null);
