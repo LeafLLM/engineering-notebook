@@ -1,27 +1,187 @@
-
-html {
-    scroll-behavior: smooth;
-    font-size: 16px;
-}
-
-body {
-    margin: 0;
-    padding: 0;
-    font-family: Arial, sans-serif;
-    background-color: #f4f4f4;
-}
-
-.navbar {
-    position: fixed;
-    top: 0;
-    width: 100%;
-    background-color: #333;
-    display: flex;
-    justify-content: space-around;
-    padding: 10px 0;
-}
-.navbar a {
-    color: white;
-    text-decoration: none;
-    padding: 10px 20px;
-}
+/* 1. Shared tokens. Change these first when experimenting with the design. */
+:root { --background:#f6f7f3; --paper:#fff; --text:#223630; --muted:#69766f; --border:#dfe5dd; --accent:#21694f; --accent-light:#e8f0e6; --nav-height:60px; }
+* { box-sizing:border-box; }
+[hidden] { display:none!important; }
+body { margin:0; background:var(--background); color:var(--text); font:15px/1.6 'Segoe UI',Arial,sans-serif; }
+button,input,select,textarea { font:inherit; color:inherit; }
+button,a,input,select,textarea { -webkit-tap-highlight-color:transparent; }
+button { cursor:pointer; }
+button:disabled { opacity:.45; cursor:not-allowed; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+:focus-visible { outline:3px solid #9bbd74; outline-offset:3px; }
+h1,h2,h3,p { margin-top:0; }
+h2 { font-size:18px; line-height:1.35; font-weight:650; letter-spacing:-.4px; }
+label { display:grid; gap:6px; font-size:12px; font-weight:600; color:var(--muted); }
+input,select,textarea { width:100%; min-width:0; border:1px solid var(--border); border-radius:6px; padding:10px 12px; background:white; font-size:14px; font-weight:400; }
+textarea { resize:vertical; }
+small { display:block; color:var(--muted); font-size:11px; }
+.visually-hidden { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.main { max-width:1560px; margin:auto; padding:0 42px 30px; }
+.eyebrow,.tiny-label { color:var(--muted); font:600 10px/1.5 Consolas,monospace; letter-spacing:1.5px; }
+.eyebrow { margin-bottom:12px; }
+.empty-state { color:var(--muted); font-size:13px; padding:18px 0; margin:0; }
+.error,.overdue,#item-error { color:#a14532; }
+.notebook-button { display:inline-flex; justify-content:center; align-items:center; min-height:42px; padding:10px 16px; border:1px solid var(--border); border-radius:6px; background:var(--paper); font-weight:600; font-size:12px; white-space:nowrap; }
+.notebook-button:hover { background:var(--accent-light); }
+.notebook-button.primary { background:var(--accent); border-color:var(--accent); color:white; }
+.notebook-button.primary:hover { background:#194f3d; }
+.text-button,.refresh-documents { background:none; border:0; color:var(--accent); padding:8px 0; font-size:12px; font-weight:600; text-align:left; }
+.text-button:hover,.refresh-documents:hover { text-decoration:underline; }
+/* 2. Shell: three tabs and a shared deadline rail, matching the wireframe. */
+.app-header { display:flex; justify-content:space-between; align-items:center; gap:24px; padding:25px 0 21px; }
+.brand { display:flex; gap:12px; align-items:center; color:var(--text); font-size:20px; font-weight:700; letter-spacing:-.6px; }
+.brand:hover { text-decoration:none; }
+.brand small { font:9px Consolas,monospace; letter-spacing:1.3px; margin-top:2px; }
+.brand-mark { display:grid; place-items:center; position:relative; width:43px; height:43px; background:var(--accent); color:white; border-radius:10px; font-size:27px; font-weight:400; }
+.brand-mark span { position:absolute; right:5px; top:0; font-size:15px; }
+.management-label { display:flex; align-items:center; gap:10px; }
+.management-label small { font:9px Consolas,monospace; letter-spacing:1px; }
+.management-label strong { font-size:13px; }
+.team-avatar { display:grid; place-items:center; width:34px; height:34px; border:1px solid #cad7c6; border-radius:7px; background:#e9ede1; font-weight:700; }
+.navbar { display:flex; align-items:center; gap:30px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); min-height:60px; }
+.navbar a { display:flex; align-items:center; min-height:60px; font-size:13px; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1px; }
+.navbar a[aria-current] { color:var(--accent); border-bottom-color:var(--accent); font-weight:650; }
+#workspace-mode { margin-left:auto; color:var(--muted); font:10px Consolas,monospace; letter-spacing:1px; }
+.demo-banner { display:flex; justify-content:space-between; gap:10px; padding:10px 14px; background:#eaf0df; border-radius:5px; color:#4e6542; font-size:11px; margin-top:16px; }
+.demo-banner a { white-space:nowrap; }
+.account-area { margin-top:16px; }
+.notebook-session { display:flex; align-items:center; justify-content:space-between; font-size:12px; color:var(--muted); }
+.notebook-session p { margin:0; }
+.notebook-session .notebook-button { padding:4px 12px; min-height:32px; background:transparent; }
+.sign-in-panel { display:grid; gap:8px; width:min(100%,510px); padding:28px; background:var(--paper); border:1px solid var(--border); border-radius:10px; margin:28px auto; }
+.sign-in-panel h2 { margin-bottom:3px; }
+.sign-in-panel p { font-size:13px; color:var(--muted); margin-bottom:5px; }
+.demo-link { padding:10px 0 16px; font-weight:650; font-size:14px; }
+#management-status { font-size:12px; margin:6px 0; min-height:12px; }
+.page { display:grid; grid-template-columns:minmax(0,1fr) 260px; grid-template-areas:'content deadlines'; gap:32px; align-items:start; margin-top:20px; }
+.section { grid-area:content; min-width:0; }
+.section-heading { display:flex; justify-content:space-between; gap:20px; align-items:center; margin-bottom:27px; }
+.section h1 { font-size:36px; line-height:1.17; letter-spacing:-1.4px; font-weight:600; margin:0 0 14px; }
+.section-intro { color:var(--muted); font-size:13px; margin:0; max-width:450px; }
+.panel { padding:24px; background:var(--paper); border:1px solid var(--border); border-radius:9px; }
+.panel-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:20px; }
+.panel-heading h2,.panel-heading p { margin:0; }
+.panel-heading .eyebrow { margin-bottom:6px; }
+.panel-heading a { font-size:11px; white-space:nowrap; }
+/* 3. Overview: counts, task table, latest entries. */
+.stats { display:grid; grid-template-columns:repeat(3,1fr); margin:0 0 28px; border:1px solid var(--border); border-radius:8px; background:#eff2e9; }
+.stats>div { display:flex; align-items:center; justify-content:space-between; padding:16px 22px; border-right:1px solid var(--border); gap:10px; }
+.stats>div:last-child { border:0; }
+.stats span { font:10px Consolas,monospace; letter-spacing:1px; color:#5c6d58; }
+.stats strong { font-size:28px; font-weight:500; line-height:1; }
+.filter-row { display:flex; gap:12px; margin-bottom:20px; }
+.filter-row label { min-width:150px; }
+.filter-row select,.rail-filter select { padding:7px 10px; font-size:12px; }
+.table-scroll { overflow-x:auto; }
+.task-table { border-collapse:collapse; width:100%; font-size:12px; text-align:left; }
+.task-table th { color:var(--muted); font:10px Consolas,monospace; padding:12px 10px; border-bottom:1px solid var(--border); background:#f7f8f4; white-space:nowrap; }
+.task-table td { padding:17px 10px; border-bottom:1px solid #edf0e9; }
+.task-table th:first-child,.task-table td:first-child { padding-left:0; min-width:170px; }
+.task-table td strong { display:block; font-weight:600; }
+.task-table td small { margin-top:3px; }
+.task-table td:nth-child(3) { white-space:nowrap; }
+.status-pill { display:inline-block; padding:3px 8px; border-radius:4px; font-size:10px; white-space:nowrap; }
+.status-pill.progress { background:#faf0d4; color:#80631d; }
+.status-pill.todo { background:#eef0ec; color:#667063; }
+.status-pill.done { background:#e4f0e2; color:#376a3f; }
+.overview-bottom { display:grid; grid-template-columns:1.2fr 1fr; gap:20px; margin-top:24px; }
+.team-note { padding:26px; background:#e6eddf; border:1px solid #d8e3cf; border-radius:9px; }
+.team-note h2 { font-size:27px; font-weight:500; margin:12px 0; letter-spacing:-.8px; }
+.team-note p { font-size:13px; color:#5b6d53; margin-bottom:8px; }
+.recent-entry { border:0; width:100%; display:grid; grid-template-columns:28px 1fr; column-gap:10px; text-align:left; background:none; padding:13px 0; border-bottom:1px solid var(--border); }
+.recent-entry:hover { background:#f5f7f0; }
+.recent-entry strong { font-size:12px; overflow-wrap:anywhere; }
+.recent-entry small { grid-column:2; }
+.entry-symbol { grid-row:span 2; color:var(--accent); font-size:25px; }
+.deadlines { grid-area:deadlines; position:sticky; top:24px; border-left:1px solid var(--border); padding:5px 0 0 26px; min-width:0; }
+.deadlines h2 { font-size:17px; }
+.deadlines .panel-heading { display:block; margin-bottom:18px; }
+.deadlines .tiny-label { font-size:9px; }
+.rail-filter { margin-bottom:12px; }
+.deadline-item { display:block; width:100%; border:0; border-bottom:1px solid var(--border); background:none; padding:18px 0; text-align:left; }
+.deadline-item:hover strong { color:var(--accent); }
+.deadline-item>span { display:block; font:10px Consolas,monospace; margin-bottom:7px; letter-spacing:.5px; }
+.deadline-item strong { display:block; font-size:13px; line-height:1.45; margin-bottom:6px; overflow-wrap:anywhere; }
+.deadline-date { color:var(--accent); }
+.rail-team { margin-top:30px; }
+.roster-person { display:flex; gap:10px; align-items:center; margin:12px 0; font-size:12px; }
+.member-avatar { display:grid; place-items:center; height:27px; width:27px; flex-shrink:0; border-radius:50%; background:#e4e8dc; color:#5e7150; font-size:11px; }
+.next-task { display:flex; align-items:center; gap:12px; margin-top:30px; padding:15px 20px; background:#233d31; border-radius:7px; color:#f2f6eb; font-size:12px; }
+.next-task strong { font:10px Consolas,monospace; letter-spacing:1px; white-space:nowrap; color:#b7c9a9; }
+.next-dot { width:7px; height:7px; border-radius:50%; background:#bfd583; flex-shrink:0; }
+/* 4. Document library and Quill writing surface. */
+.notebook-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:24px; }
+.notebook-heading h1 { margin:0; }
+.notebook-layout { display:grid; grid-template-columns:185px minmax(0,1fr); gap:22px; align-items:start; }
+.document-library { padding:16px 12px; background:#edf1e8; border:1px solid var(--border); border-radius:7px; min-width:0; }
+.document-library-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.document-library h2 { font-size:13px; margin:0; }
+.library-description { font-size:11px; color:var(--muted); overflow-wrap:anywhere; }
+.document-group h3 { font:600 11px Consolas,monospace; margin:20px 8px 6px; overflow-wrap:anywhere; }
+.document-group ul { list-style:none; margin:0; padding:0; }
+.document-list-item { display:block; width:100%; padding:11px 8px; border:0; border-radius:4px; background:none; text-align:left; overflow-wrap:anywhere; }
+.document-list-item:hover,.document-list-item[aria-current] { background:#dde8d5; }
+.document-list-item strong,.document-list-item time { display:block; font-size:12px; }
+.document-list-item time { font-size:10px; margin-top:4px; color:var(--muted); }
+.document-workspace,.document-heading-fields { min-width:0; }
+.document-heading-fields { flex:1; }
+.document-topbar { display:flex; justify-content:space-between; gap:12px; align-items:start; margin-bottom:10px; }
+#entry-title { border:0; padding:0; background:none; font-size:21px; font-weight:600; }
+.document-mechanism { display:flex; align-items:center; gap:8px; font-size:11px; margin-top:8px; }
+#mechanism-title { max-width:180px; padding:3px 6px; font-size:12px; background:transparent; }
+.document-status { font-size:11px; color:var(--muted); min-height:20px; }
+.document-status[data-state=error] { color:#a14532; }
+.document-conflict-actions { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.notebook-notice { padding:15px; border:1px solid #e0c49a; background:#fff6e5; margin:16px 0; border-radius:6px; font-size:13px; }
+.editor-extras { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:12px; }
+.editor-extras>span { font-size:10px; color:var(--muted); }
+.image-upload { position:relative; font-size:12px; cursor:pointer; color:var(--accent); }
+.image-upload:focus-within { outline:3px solid #9bbd74; outline-offset:4px; }
+#editor-toolbar.ql-toolbar { background:#edf1e8; border:1px solid var(--border); border-radius:6px; position:sticky; top:8px; z-index:2; }
+.document-paper { border:1px solid var(--border); background:white; margin-top:15px; box-shadow:0 4px 12px #233d3106; }
+#editor.ql-container { border:0; height:auto; font:inherit; }
+#editor .ql-editor { padding:36px; min-height:650px; line-height:1.8; font-size:15px; overflow-wrap:anywhere; }
+#editor .ql-editor.ql-blank:before { left:36px; right:36px; color:#899381; font-style:normal; }
+#editor .ql-editor img { max-width:100%; height:auto; }
+/* 5. Resources and the shared edit dialog. */
+.resource-tools { display:flex; gap:14px; margin:26px 0; }
+.search-label { flex:1; }
+.resource-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+.resource-card { display:flex; flex-direction:column; padding:24px; border:1px solid var(--border); background:white; border-radius:8px; overflow-wrap:anywhere; }
+.resource-card h2 { margin:0 0 12px; }
+.resource-card p { font-size:13px; color:var(--muted); white-space:pre-wrap; }
+.resource-symbol { display:grid; place-items:center; width:42px; height:42px; background:#eef2e8; color:var(--accent); font-size:27px; border-radius:9px; }
+.resource-footer { margin-top:auto; display:flex; justify-content:space-between; align-items:center; gap:14px; font-size:12px; }
+dialog { border:1px solid var(--border); border-radius:12px; padding:28px; width:540px; max-width:calc(100% - 24px); max-height:90vh; color:var(--text); box-shadow:0 20px 80px #14261f40; }
+dialog::backdrop { background:#152a2259; backdrop-filter:blur(3px); }
+dialog form>label,fieldset>label { margin:14px 0; }
+fieldset { border:0; padding:0; margin:0; min-width:0; }
+.form-pair { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.icon-button { border:0; background:none; font-size:26px; padding:0 8px; }
+.dialog-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+#archive-item { margin-right:auto; }
+#item-error { font-size:12px; margin:12px 0; }
+/* 6. Smaller screens keep the same workflow with stacked panels. */
+@media(max-width:1150px) { .main{padding:0 24px 24px} .page{grid-template-columns:minmax(0,1fr) 220px;gap:24px} .deadlines{padding-left:20px} .notebook-layout{grid-template-columns:1fr} #document-list{max-height:190px;overflow:auto} .stats>div{padding:15px} .overview-bottom{grid-template-columns:1fr} }
+@media(max-width:850px) { .page{grid-template-columns:1fr;grid-template-areas:'content' 'deadlines'} .deadlines{position:static;border-left:0;border-top:1px solid var(--border);padding:25px 0 0} #deadline-list{display:grid;grid-template-columns:repeat(2,1fr);gap:0 20px} #team-roster{display:flex;flex-wrap:wrap;gap:20px} .rail-filter{max-width:280px} .section h1{font-size:32px} .overview-bottom{grid-template-columns:1fr 1fr} }
+@media(max-width:560px) { .main{padding:0 16px 20px} .app-header{padding:20px 0;gap:10px} .brand{font-size:17px;gap:9px} .brand small{font-size:7px;letter-spacing:.5px} .brand-mark{width:35px;height:35px;font-size:23px} .management-label{gap:0} .team-avatar{display:none} .management-label strong{font-size:11px} .management-label small{font-size:8px} .navbar{gap:24px;min-height:52px} .navbar a{min-height:52px;font-size:12px} #workspace-mode{display:none} .demo-banner{display:block;font-size:10px} .demo-banner a{display:block;margin-top:4px} .section-heading{align-items:start;flex-direction:column;gap:18px} .section h1{font-size:31px} .stats>div{display:block;padding:14px 10px} .stats strong{display:block;margin-top:10px;font-size:26px} .stats span{font-size:8px;letter-spacing:.5px} .panel{padding:18px} .overview-bottom,.resource-grid{grid-template-columns:1fr} .filter-row{gap:8px} .filter-row label{min-width:0;flex:1} .task-table{min-width:570px} .resource-tools{flex-direction:column} .document-topbar{flex-wrap:wrap} .document-heading-fields{flex-basis:100%} #editor .ql-editor{padding:24px 20px;min-height:480px} #editor .ql-editor.ql-blank:before{left:20px;right:20px} .notebook-heading{align-items:flex-end} .notebook-heading h1{font-size:28px} .next-task{gap:8px;padding:14px;font-size:11px;align-items:flex-start} .next-dot{margin-top:5px} #deadline-list{grid-template-columns:1fr} .form-pair{grid-template-columns:1fr} dialog{padding:20px} }
+/* Calendar dates filter the existing timeline; dots indicate scheduled tasks. */
+.calendar-panel { min-width:0; }
+.calendar-panel h2 { font-size:14px; }
+.calendar-controls { display:flex; gap:6px; align-items:center; }
+.calendar-controls button { border:0; background:transparent; color:var(--accent); padding:4px 8px; font-size:13px; }
+.calendar-weekdays,.calendar-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px; }
+.calendar-weekdays span { text-align:center; font:10px Consolas,monospace; color:var(--muted); padding:5px 0; }
+.calendar-day { position:relative; min-height:32px; padding:3px; border:1px solid transparent; border-radius:5px; background:transparent; font-size:11px; }
+.calendar-day:hover { background:var(--accent-light); }
+.calendar-day.today { border-color:#92b18c; font-weight:700; }
+.calendar-day[aria-pressed=true] { background:var(--accent); color:white; }
+.calendar-day.outside-month { opacity:.4; }
+.calendar-day.has-tasks:after { content:''; position:absolute; bottom:2px; left:calc(50% - 2px); width:4px; height:4px; border-radius:50%; background:currentColor; }
+.calendar-hint,.entry-prompt { font-size:11px; color:var(--muted); margin:15px 0 0; }
+/* Keep the three sections reachable while reading a long entry. */
+.navbar { position:sticky; top:0; z-index:10; background:var(--background); }
+#editor-toolbar.ql-toolbar { top:68px; }
+/* Hidden labels stay inside their containing block, including scrollable tables. */
+.visually-hidden { top:0; left:0; }

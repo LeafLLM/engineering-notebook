@@ -1,1 +1,6 @@
 brainstorming - app.txt
+node_modules/
+.pnpm-store/
+.env
+.env.*
+test-results/

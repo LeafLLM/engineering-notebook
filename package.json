@@ -1,0 +1,11 @@
+{
+  "name": "engineering-notebook",
+  "private": true,
+  "scripts": {
+    "test": "node --test --test-isolation=none tests/*.test.cjs",
+    "test:browser": "node tests/browser-server.cjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.10"
+  }
+}

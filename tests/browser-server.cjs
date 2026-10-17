@@ -1,0 +1,181 @@
+// TEST ONLY. A loopback server with disposable accounts, PostgreSQL, and a small
+// Auth/PostgREST facade. The production app never loads this file.
+const http = require("node:http");
+const { readFile } = require("node:fs/promises");
+const { resolve } = require("node:path");
+const { users, createTestDatabase, asUser } = require("./fixtures.cjs");
+
+const password = "notebook-test-only";
+const root = resolve(__dirname, "..");
+const files = new Map([
+    ["/", ["index.html", "text/html"]],
+    ["/index.html", ["index.html", "text/html"]],
+    ["/style.css", ["style.css", "text/css"]],
+    ["/script.js", ["script.js", "text/javascript"]],
+    ["/document-store.js", ["document-store.js", "text/javascript"]],
+    ["/documents.js", ["documents.js", "text/javascript"]],
+    ["/management-store.js", ["management-store.js", "text/javascript"]],
+    ["/management.js", ["management.js", "text/javascript"]]
+]);
+const columns = {
+    teams: ["id", "name"],
+    team_members: ["user_id", "team_id", "display_name", "role"],
+    documents: ["id", "team_id", "title", "mechanism", "content", "author_id", "updated_by", "created_at", "updated_at", "revision", "archived"]
+};
+columns.team_items = ["id", "team_id", "kind", "title", "data", "archived", "author_id", "updated_by", "created_at", "updated_at", "revision"];
+
+function json(response, status, body) {
+    response.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    response.end(JSON.stringify(body));
+}
+
+async function readJson(request) {
+    let body = "";
+    for await (const chunk of request) {
+        body += chunk;
+        if (body.length > 2_000_000) throw new Error("Test request too large");
+    }
+    return body ? JSON.parse(body) : {};
+}
+
+function authResponse(user) {
+    const now = Math.floor(Date.now() / 1000);
+    const part = value => Buffer.from(JSON.stringify(value)).toString("base64url");
+    const token = part({ alg: "HS256", typ: "JWT" }) + "." +
+        part({ sub: user.id, email: user.email, role: "authenticated", aud: "authenticated", iat: now, exp: now + 3600 }) +
+        "." + Buffer.from("test-only-signature").toString("base64url");
+    return {
+        access_token: token, refresh_token: "test-refresh-" + user.id,
+        token_type: "bearer", expires_in: 3600, expires_at: now + 3600,
+        user: {
+            id: user.id, aud: "authenticated", role: "authenticated", email: user.email,
+            email_confirmed_at: new Date().toISOString(),
+            app_metadata: { provider: "email", providers: ["email"] }, user_metadata: {},
+            identities: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+        }
+    };
+}
+
+function requestUser(request) {
+    try {
+        const token = (request.headers.authorization || "").replace(/^Bearer /i, "");
+        const claims = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
+        return users.find(user => user.id === claims.sub) || null;
+    } catch { return null; }
+}
+
+(async () => {
+    const { db } = await createTestDatabase();
+    let failNextSave = false;
+    let delayNextSave = 0;
+    const server = http.createServer(async (request, response) => {
+        const url = new URL(request.url, "http://localhost");
+        try {
+            if (url.pathname === "/supabase-client.js") {
+                response.writeHead(200, { "Content-Type": "text/javascript", "Cache-Control": "no-store" });
+                response.end("const notebookDb = window.supabase.createClient(window.location.origin + '/mock-supabase', 'test-only-publishable-key');");
+                return;
+            }
+            if (files.has(url.pathname)) {
+                const [file, type] = files.get(url.pathname);
+                response.writeHead(200, { "Content-Type": type, "Cache-Control": "no-store" });
+                response.end(await readFile(resolve(root, file)));
+                return;
+            }
+            if (url.pathname === "/test-state") {
+                json(response, 200, (await db.query("select id,title,mechanism,content,author_id,updated_by,revision from public.documents order by created_at")).rows);
+                return;
+            }
+            if (url.pathname === "/test/fail-next-save" && request.method === "POST") {
+                failNextSave = true;
+                json(response, 200, { ready: true });
+                return;
+            }
+            if (url.pathname === "/test/delay-next-save" && request.method === "POST") {
+                delayNextSave = 1500;
+                json(response, 200, { ready: true });
+                return;
+            }
+            if (url.pathname === "/mock-supabase/auth/v1/token") {
+                const body = await readJson(request);
+                const user = url.searchParams.get("grant_type") === "refresh_token"
+                    ? users.find(item => body.refresh_token === "test-refresh-" + item.id)
+                    : users.find(item => item.email === body.email && body.password === password);
+                json(response, user ? 200 : 400, user ? authResponse(user) : { code: "invalid_credentials", msg: "Invalid login credentials" });
+                return;
+            }
+            if (url.pathname === "/mock-supabase/auth/v1/logout") {
+                json(response, 200, {});
+                return;
+            }
+            if (url.pathname === "/mock-supabase/auth/v1/user") {
+                const user = requestUser(request);
+                json(response, user ? 200 : 401, user ? authResponse(user).user : { msg: "Not signed in" });
+                return;
+            }
+            if (!url.pathname.startsWith("/mock-supabase/rest/v1/")) {
+                json(response, 404, { message: "Not found" });
+                return;
+            }
+            const table = url.pathname.split("/").pop();
+            if (!columns[table]) throw new Error("Unknown test table");
+            const selected = (url.searchParams.get("select") || "*").split(",");
+            if (selected.some(column => column !== "*" && !columns[table].includes(column))) throw new Error("Unknown test column");
+            const projection = selected.join(",");
+            const params = [];
+            const conditions = [];
+            for (const [name, value] of url.searchParams) {
+                if (columns[table].includes(name) && value.startsWith("eq.")) {
+                    params.push(value.slice(3));
+                    conditions.push(name + "=$" + params.length);
+                }
+            }
+            const where = conditions.length ? " where " + conditions.join(" and ") : "";
+            let sql;
+            if (request.method === "GET") {
+                sql = "select " + projection + " from public." + table + where;
+                if (url.searchParams.get("order") === "updated_at.desc") sql += " order by updated_at desc";
+            } else if (["POST", "PATCH"].includes(request.method) && ["documents", "team_items"].includes(table)) {
+                const body = await readJson(request);
+                if (failNextSave) {
+                    failNextSave = false;
+                    json(response, 503, { code: "TEST_SAVE_FAILURE", message: "Temporary test save failure" });
+                    return;
+                }
+                if (delayNextSave) {
+                    const delay = delayNextSave;
+                    delayNextSave = 0;
+                    await new Promise(done => setTimeout(done, delay));
+                }
+                const fields = Object.keys(body);
+                if (fields.some(field => !columns[table].includes(field))) throw new Error("Unknown write column");
+                const expressions = fields.map(field => {
+                    params.push(typeof body[field] === "object" ? JSON.stringify(body[field]) : body[field]);
+                    return "$" + params.length;
+                });
+                sql = request.method === "POST"
+                    ? "insert into public." + table + "(" + fields.join(",") + ") values (" + expressions.join(",") + ")"
+                    : "update public." + table + " set " + fields.map((field, index) => field + "=" + expressions[index]).join(",") + where;
+                sql += " returning " + projection;
+            } else {
+                json(response, 405, { message: "Unsupported test method" });
+                return;
+            }
+            const user = requestUser(request);
+            const result = await asUser(db, user?.id || null, sql, params);
+            const singular = (request.headers.accept || "").includes("application/vnd.pgrst.object+json");
+            if (singular && result.rows.length !== 1) {
+                json(response, 406, { code: "PGRST116", message: "Expected one row", details: "The result contains " + result.rows.length + " rows" });
+            } else {
+                json(response, request.method === "POST" ? 201 : 200, singular ? result.rows[0] : result.rows);
+            }
+        } catch (error) {
+            json(response, error.code === "42501" ? 403 : 400, { code: error.code || "TEST_ERROR", message: error.message });
+        }
+    });
+    server.listen(0, "127.0.0.1", () => {
+        console.log("TEST_ONLY_URL=http://localhost:" + server.address().port);
+        console.log("TEST_ONLY_PID=" + process.pid);
+        console.log("Disposable login: sam@example.test or taylor@example.test / " + password);
+    });
+})().catch(error => { console.error(error); process.exitCode = 1; });

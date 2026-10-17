@@ -6,6 +6,8 @@ links.forEach(function (link) {
         event.preventDefault();
 
         const target = link.getAttribute("href");
+        // this basically turns the href into text
+
         const nextView = document.querySelector(target);
 
         currentView.hidden = true;
@@ -13,3 +15,5 @@ links.forEach(function (link) {
         currentView = nextView;
     });
 });
+
+a
