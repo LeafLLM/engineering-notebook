@@ -14,25 +14,52 @@
         <p> this is the main container</p>
         <div class ="page"> 
 
-                <div class="section overview">
-                    <h1>overview</h1>
+                <div class="section overview" id="overview">
+                    <h1><Option></Option>Overview</h1>
                 </div>
 
-                <div class="section deadlines">
+                <div class="deadlines" id="deadlines">
                     <details>
                         <summary>Deadlines</summary>
+                        <p>deadlines placeholder</p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Complete</th>
+                                    <th>Due Date</th>
+                                    <th>Task</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><input type="checkbox" name="task1" value="task1"></td>
+                                    <td>mm/dd</td>
+                                    <td>Finish this app</td>
+                                    <td>kill me genuinely</td>
+                                    
+                            </tbody>
+                            </table>
+                        <!--
+                        <table> — wraps the entire table.
+<thead> — contains the header row.
+<tbody> — contains your task rows.
+<tr> — one row.
+<th> — a header cell, such as “Due date.”
+<td> — a regular cell containing a task’s information.
+                        -->
                     </details>
                 </div> 
 
-                <div class="section documenting">   
+                <div class="section documenting" id="documenting" hidden>
                     <h1>Documenting</h1>
                 </div>
 
-                <div class="section whiteboard"> 
+                <div class="section whiteboard" id="whiteboard" hidden>
                     <h1>Whiteboard</h1>
                 </div>
 
-                <div class="section resources">
+                <div class="section resources" id="resources" hidden>
                     <h1>Resources</h1>
                 </div>
 
