@@ -1,5 +1,5 @@
 // Page layout and navigation. Connects the notebook and team tools through props.
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNotebook } from "./hooks/useNotebook";
 import { useManagement } from "./hooks/useManagement";
 import AccountPanel from "./components/AccountPanel";
@@ -20,15 +20,37 @@ export default function App() {
   const { state, actions } = notebook;
   const management = useManagement(state.membership);
   const [tab, setTab] = useState(currentTab);
+  const navigationFrame = useRef(null);
+  const showTab = useCallback((id) => {
+    setTab(id);
+    cancelAnimationFrame(navigationFrame.current);
+    // Wait for React to reveal the section before scrolling to it. The account
+    // form can fill a phone screen, so resetting to the page top hides the result.
+    navigationFrame.current = requestAnimationFrame(() => {
+      const section = document.getElementById(id);
+      if (!section) return;
+      const navHeight =
+        document.querySelector(".navbar")?.getBoundingClientRect().height || 0;
+      window.scrollTo({
+        top: Math.max(
+          0,
+          window.scrollY + section.getBoundingClientRect().top - navHeight - 16,
+        ),
+        behavior: "auto",
+      });
+    });
+  }, []);
   // Hash links preserve reloads, direct links, and the browser Back button.
   useEffect(() => {
     const change = () => {
-      setTab(currentTab());
-      window.scrollTo(0, 0);
+      showTab(currentTab());
     };
     window.addEventListener("hashchange", change);
-    return () => window.removeEventListener("hashchange", change);
-  }, []);
+    return () => {
+      window.removeEventListener("hashchange", change);
+      cancelAnimationFrame(navigationFrame.current);
+    };
+  }, [showTab]);
   const next = management.items
     .filter(
       (item) =>
@@ -57,6 +79,19 @@ export default function App() {
             <a
               href={"#" + id}
               key={id}
+              onClick={(event) => {
+                if (
+                  event.button !== 0 ||
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey
+                )
+                  return;
+                event.preventDefault();
+                showTab(id);
+                if (location.hash !== "#" + id) location.hash = id;
+              }}
               aria-current={tab === id ? "page" : undefined}
             >
               {id[0].toUpperCase() + id.slice(1)}
