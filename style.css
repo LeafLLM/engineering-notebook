@@ -724,13 +724,26 @@ small {
 .next-task {
     display: flex;
     align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    text-align: center;
     gap: 12px;
     margin-top: 30px;
-    padding: 15px 20px;
-    background: #172d50;
-    border-radius: 7px;
-    color: #eff5ff;
-    font-size: 12px;
+    padding: 20px 0;
+    background: var(--background);
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    color: var(--text);
+    font-size: 13px;
+}
+.next-task-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+#next-task-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 .next-task strong {
     font:
@@ -738,13 +751,13 @@ small {
         monospace;
     letter-spacing: 1px;
     white-space: nowrap;
-    color: #b6c9eb;
+    color: var(--muted);
 }
 .next-dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #83b4ff;
+    background: var(--accent);
     flex-shrink: 0;
 }
 /* 4. Document library and Quill writing surface. */
@@ -1263,13 +1276,14 @@ fieldset {
         font-size: 28px;
     }
     .next-task {
+        flex-direction: column;
         gap: 8px;
-        padding: 14px;
-        font-size: 11px;
-        align-items: flex-start;
+        padding: 18px 0;
+        font-size: 13px;
+        align-items: center;
     }
     .next-dot {
-        margin-top: 5px;
+        margin-top: 0;
     }
     #deadline-list {
         grid-template-columns: 1fr;

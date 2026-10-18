@@ -156,13 +156,15 @@ export default function App() {
           />
         </div>
         <footer id="next-task" className="next-task">
-          <span className="next-dot" aria-hidden="true" />
-          <strong>NEXT UP</strong>
+          <span className="next-task-label">
+            <span className="next-dot" aria-hidden="true" />
+            <strong>NEXT UP</strong>
+          </span>
           <span id="next-task-text">
             {next
               ? next.title + " · " + dueLabel(next.data.due)
               : state.membership
-                ? "You're clear of assigned deadlines. Check the team timeline for the next step."
+                ? "All Clear! Check the calendar for any new updates."
                 : "A clear next step makes a difference."}
           </span>
         </footer>
