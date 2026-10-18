@@ -1,7 +1,7 @@
 // Sign-in, signed-in account details, and notebook connection errors.
 import { useRef, useState } from "react";
 import HCaptcha from "@hcaptcha/react-hcaptcha";
-import { captchaSiteKey } from "../data/client";
+import { captchaSiteKey, isDemo, demoUrl } from "../data/client";
 
 export default function AccountPanel({ state, actions }) {
   const signingUp = state.authMode === "sign-up";
@@ -23,6 +23,21 @@ export default function AccountPanel({ state, actions }) {
       resetCaptcha();
     }
   };
+  if (isDemo)
+    return (
+      <section className="account-area" aria-label="Account">
+        <div className="notebook-session demo-session">
+          <p>Demo · changes reset on refresh</p>
+          <button
+            type="button"
+            className="notebook-button"
+            onClick={() => location.assign(demoUrl(false))}
+          >
+            Exit demo
+          </button>
+        </div>
+      </section>
+    );
   return (
     <section className="account-area" aria-label="Account">
       <form
@@ -143,6 +158,9 @@ export default function AccountPanel({ state, actions }) {
         <p id="sign-in-status" role="status" aria-live="polite">
           {state.signInStatus}
         </p>
+        <a className="notebook-button" href={demoUrl(true)}>
+          Try demo
+        </a>
       </form>
       <div
         className="notebook-session"

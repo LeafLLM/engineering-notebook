@@ -2,7 +2,7 @@ import Quill from "quill";
 import { designPrompts } from "../data/design-prompts";
 import { createDocumentStore } from "../data/document-store";
 import { createAccountStore } from "../data/account-store";
-import { captchaSiteKey } from "../data/client";
+import { captchaSiteKey, isDemo } from "../data/client";
 import { createTeamAccessStore } from "../data/team-access-store";
 import { clearInvite, inviteToken, pendingInvite } from "../data/invite-link";
 
@@ -777,7 +777,7 @@ export function createNotebookController(client) {
       };
       quill.on("text-change", change);
       const unload = (event) => {
-        if (dirty || saveTask) {
+        if (!isDemo && (dirty || saveTask)) {
           event.preventDefault();
           event.returnValue = "";
         }

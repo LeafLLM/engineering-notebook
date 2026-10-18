@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { notebookDb } from "../data/client";
+import { notebookDb, isDemo } from "../data/client";
 import { createTeamAccessStore } from "../data/team-access-store";
 import { inviteLink } from "../data/invite-link";
 
@@ -81,7 +81,7 @@ export default function TeamAccess({ management, notebookActions }) {
     }
   }
 
-  if (!isManager) return null;
+  if (!isManager || isDemo) return null;
   const pending = invites.filter(
     (item) =>
       !item.revoked_at &&
