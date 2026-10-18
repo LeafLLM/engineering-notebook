@@ -2,11 +2,27 @@
   "name": "engineering-notebook",
   "private": true,
   "scripts": {
-    "start": "node serve.cjs",
+    "start": "vite",
     "test": "node --test --test-isolation=none tests/*.test.cjs",
-    "test:browser": "node tests/browser-server.cjs"
+    "test:browser": "node tests/browser-server.cjs",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:e2e": "pnpm build && playwright test",
+    "format": "prettier --write src index.html vite.config.mjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.10"
+    "@electric-sql/pglite": "0.5.10",
+    "@playwright/test": "^1.64.1",
+    "@vitejs/plugin-react": "^6.1.2",
+    "prettier": "^3.9.10",
+    "vite": "^8.3.4"
+  },
+  "dependencies": {
+    "@hcaptcha/react-hcaptcha": "^2.2.0",
+    "@supabase/supabase-js": "^2.118.0",
+    "quill": "^2.0.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   }
 }

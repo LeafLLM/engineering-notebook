@@ -25,6 +25,7 @@ async function createTestDatabase() {
     await db.exec(readFileSync(resolve(__dirname, "../supabase/setup.sql"), "utf8"));
     await db.exec(readFileSync(resolve(__dirname, "../supabase/management.sql"), "utf8"));
     await db.exec(readFileSync(resolve(__dirname, "../supabase/roles-and-archives.sql"), "utf8"));
+    await db.exec(readFileSync(resolve(__dirname, "../supabase/account-onboarding.sql"), "utf8"));
     for (const user of users) {
         await db.query("insert into auth.users(id,email) values ($1,$2)", [user.id, user.email]);
     }

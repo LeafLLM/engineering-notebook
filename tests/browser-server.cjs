@@ -1,22 +1,17 @@
 // TEST ONLY. A loopback server with disposable accounts, PostgreSQL, and a small
 // Auth/PostgREST facade. The production app never loads this file.
 const http = require("node:http");
+const { randomUUID } = require("node:crypto");
 const { readFile } = require("node:fs/promises");
 const { resolve } = require("node:path");
 const { users, createTestDatabase, asUser } = require("./fixtures.cjs");
 
 const password = "notebook-test-only";
+const signupPasswords = new Map();
 const root = resolve(__dirname, "..");
-const files = new Map([
-    ["/", ["index.html", "text/html"]],
-    ["/index.html", ["index.html", "text/html"]],
-    ["/style.css", ["style.css", "text/css"]],
-    ["/script.js", ["script.js", "text/javascript"]],
-    ["/document-store.js", ["document-store.js", "text/javascript"]],
-    ["/documents.js", ["documents.js", "text/javascript"]],
-    ["/management-store.js", ["management-store.js", "text/javascript"]],
-    ["/management.js", ["management.js", "text/javascript"]]
-]);
+// Serve the production build so browser checks exercise the shipped React app.
+const buildRoot = resolve(root, 'dist');
+
 const columns = {
     teams: ["id", "name"],
     team_members: ["user_id", "team_id", "display_name", "role"],
@@ -66,20 +61,24 @@ function requestUser(request) {
 
 (async () => {
     const { db } = await createTestDatabase();
+    await db.exec(await readFile(resolve(root, "supabase/delete-archived.sql"), "utf8"));
     let failNextSave = false;
     let delayNextSave = 0;
     const server = http.createServer(async (request, response) => {
         const url = new URL(request.url, "http://localhost");
         try {
-            if (url.pathname === "/supabase-client.js") {
-                response.writeHead(200, { "Content-Type": "text/javascript", "Cache-Control": "no-store" });
-                response.end("const notebookDb = window.supabase.createClient(window.location.origin + '/mock-supabase', 'test-only-publishable-key');");
+            if (url.pathname === '/' || url.pathname === '/index.html') {
+                const html = await readFile(resolve(buildRoot, 'index.html'), 'utf8');
+                // Generic tests omit the widget; dedicated CAPTCHA tests mock its SDK.
+                const settings = "<script>window.__NOTEBOOK_CONFIG__={url:location.origin+'/mock-supabase',key:'test-only-publishable-key',captchaSiteKey:"
+                    + JSON.stringify(url.searchParams.has("captcha") ? "test-sitekey" : "") + "};</script>";
+                response.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' });
+                response.end(html.replace('<head>', '<head>' + settings));
                 return;
             }
-            if (files.has(url.pathname)) {
-                const [file, type] = files.get(url.pathname);
-                response.writeHead(200, { "Content-Type": type, "Cache-Control": "no-store" });
-                response.end(await readFile(resolve(root, file)));
+            if (/^\/assets\/[a-zA-Z0-9_.-]+\.(js|css)$/.test(url.pathname)) {
+                response.writeHead(200, { 'Content-Type': url.pathname.endsWith('.css') ? 'text/css' : 'text/javascript' });
+                response.end(await readFile(resolve(buildRoot, '.' + url.pathname)));
                 return;
             }
             if (url.pathname === "/test-state") {
@@ -96,11 +95,24 @@ function requestUser(request) {
                 json(response, 200, { ready: true });
                 return;
             }
+            if (url.pathname === "/mock-supabase/auth/v1/signup") {
+                const body = await readJson(request);
+                if (users.some(user => user.email === body.email)) {
+                    json(response, 422, { msg: "User already registered" });
+                    return;
+                }
+                const user = { id: randomUUID(), email: body.email, name: "New account" };
+                await db.query("insert into auth.users(id,email) values ($1,$2)", [user.id, user.email]);
+                users.push(user);
+                signupPasswords.set(user.id, body.password);
+                json(response, 200, authResponse(user));
+                return;
+            }
             if (url.pathname === "/mock-supabase/auth/v1/token") {
                 const body = await readJson(request);
                 const user = url.searchParams.get("grant_type") === "refresh_token"
                     ? users.find(item => body.refresh_token === "test-refresh-" + item.id)
-                    : users.find(item => item.email === body.email && body.password === password);
+                    : users.find(item => item.email === body.email && body.password === (signupPasswords.get(item.id) || password));
                 json(response, user ? 200 : 400, user ? authResponse(user) : { code: "invalid_credentials", msg: "Invalid login credentials" });
                 return;
             }
@@ -115,6 +127,14 @@ function requestUser(request) {
             }
             if (!url.pathname.startsWith("/mock-supabase/rest/v1/")) {
                 json(response, 404, { message: "Not found" });
+                return;
+            }
+            if (url.pathname === "/mock-supabase/rest/v1/rpc/create_team") {
+                const body = await readJson(request);
+                const user = requestUser(request);
+                const result = await asUser(db, user?.id || null,
+                    "select public.create_team($1,$2) as id", [body.team_name, body.member_name]);
+                json(response, 200, result.rows[0].id);
                 return;
             }
             const table = url.pathname.split("/").pop();
@@ -135,6 +155,8 @@ function requestUser(request) {
             if (request.method === "GET") {
                 sql = "select " + projection + " from public." + table + where;
                 if (url.searchParams.get("order") === "updated_at.desc") sql += " order by updated_at desc";
+            } else if (request.method === "DELETE" && ["documents", "team_items"].includes(table)) {
+                sql = "delete from public." + table + where + " returning " + projection;
             } else if (["POST", "PATCH"].includes(request.method) && ["documents", "team_items"].includes(table)) {
                 const body = await readJson(request);
                 if (failNextSave) {
@@ -173,7 +195,7 @@ function requestUser(request) {
             json(response, error.code === "42501" ? 403 : 400, { code: error.code || "TEST_ERROR", message: error.message });
         }
     });
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(Number(process.env.TEST_PORT || 0), "127.0.0.1", () => {
         console.log("TEST_ONLY_URL=http://localhost:" + server.address().port);
         console.log("TEST_ONLY_PID=" + process.pid);
         console.log("Disposable login: sam@example.test or taylor@example.test / " + password);
