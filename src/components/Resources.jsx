@@ -1,9 +1,63 @@
 // Resource cards and their search/category filters. Uses the shared item form for editing.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+function ResourceDetails({ item, onClose }) {
+  const dialog = useRef(null);
+  useEffect(() => {
+    const node = dialog.current;
+    node.showModal();
+    return () => node.close();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      className="resource-details"
+      aria-labelledby="resource-details-title"
+      onClose={onClose}
+    >
+      <div className="panel-heading">
+        <span className="tiny-label">{item.data.category || "Reference"}</span>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Close resource"
+          onClick={onClose}
+        >
+          ×
+        </button>
+      </div>
+      <h2 id="resource-details-title">{item.title}</h2>
+      <p className="resource-details-notes">{item.data.notes}</p>
+      <div className="resource-pictures">
+        {(item.data.images || []).map(
+          (image, index) =>
+            /^data:image\/(png|jpeg|webp);base64,/i.test(image.src || "") && (
+              <img
+                key={index}
+                src={image.src}
+                alt={image.name || `${item.title} picture ${index + 1}`}
+              />
+            ),
+        )}
+      </div>
+      {/^https?:\/\//i.test(item.data.url || "") && (
+        <a href={item.data.url} target="_blank" rel="noopener noreferrer">
+          Open resource ↗
+        </a>
+      )}
+    </dialog>
+  );
+}
 
 export default function Resources({ management, hidden }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [expandedId, setExpandedId] = useState(null);
+  useEffect(() => {
+    if (hidden) setExpandedId(null);
+  }, [hidden]);
+  const expanded =
+    !hidden && management.items.find((item) => item.id === expandedId);
   const resources = management.items.filter(
     (item) =>
       item.kind === "resource" &&
@@ -67,6 +121,14 @@ export default function Resources({ management, hidden }) {
       <div id="resource-grid" className="resource-grid">
         {resources.map((item) => (
           <article className="resource-card" key={item.id}>
+            <button
+              type="button"
+              className="resource-expand"
+              aria-label={`Expand ${item.title}`}
+              onClick={() => setExpandedId(item.id)}
+            >
+              <span className="visually-hidden">View full resource</span>
+            </button>
             <div className="panel-heading">
               <span className="tiny-label">
                 {item.archived
@@ -92,10 +154,11 @@ export default function Resources({ management, hidden }) {
                 )}
               </div>
             )}
-            <p>
+            <p className="resource-summary">
               {item.data.notes ||
                 "Add a note to help your team use this resource."}
             </p>
+            <span className="resource-expand-hint">Click to expand</span>
             <div className="resource-footer">
               {/^https?:\/\//i.test(item.data.url || "") && (
                 <a
@@ -127,6 +190,9 @@ export default function Resources({ management, hidden }) {
           ? "Nothing here yet. Try another search, or add something useful for your team."
           : "Sign in to explore resources."}
       </p>
+      {expanded && (
+        <ResourceDetails item={expanded} onClose={() => setExpandedId(null)} />
+      )}
     </section>
   );
 }
