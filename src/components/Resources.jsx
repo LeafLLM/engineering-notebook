@@ -75,6 +75,23 @@ export default function Resources({ management, hidden }) {
               </span>
             </div>
             <h2>{item.title}</h2>
+            {item.data.images?.length > 0 && (
+              <div className="resource-pictures">
+                {item.data.images.map(
+                  (image, index) =>
+                    /^(data:image\/(png|jpeg|webp);base64,)/i.test(
+                      image.src || "",
+                    ) && (
+                      <img
+                        key={index}
+                        src={image.src}
+                        alt={image.name || `${item.title} picture ${index + 1}`}
+                        loading="lazy"
+                      />
+                    ),
+                )}
+              </div>
+            )}
             <p>
               {item.data.notes ||
                 "Add a note to help your team use this resource."}

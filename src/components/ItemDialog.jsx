@@ -14,8 +14,12 @@ export default function ItemDialog({ management }) {
     category: item.data.category || "Part",
     url: item.data.url || "",
     notes: item.data.notes || "",
+    images: item.data.images || [],
   }));
   const [dirty, setDirty] = useState(false);
+  const [readingImages, setReadingImages] = useState(false);
+  const imageRead = useRef(false);
+  const busy = management.busy || readingImages;
   useEffect(() => {
     const node = dialog.current;
     node.showModal();
@@ -23,27 +27,80 @@ export default function ItemDialog({ management }) {
   }, []);
   useEffect(() => {
     const unload = (event) => {
-      if (dirty || management.busy) {
+      if (dirty || busy) {
         event.preventDefault();
         event.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", unload);
     return () => window.removeEventListener("beforeunload", unload);
-  }, [dirty, management.busy]);
+  }, [dirty, busy]);
   const change = (field) => (event) => {
     setFields((fields) => ({ ...fields, [field]: event.target.value }));
     setDirty(true);
   };
+  async function addImages(event) {
+    const input = event.target;
+    const files = Array.from(input.files || []);
+    input.value = "";
+    if (!files.length || imageRead.current) return;
+    if (fields.images.length + files.length > 5) {
+      management.setFormError("You can add up to 5 pictures per resource.");
+      return;
+    }
+    if (
+      files.some(
+        (file) =>
+          !["image/png", "image/jpeg", "image/webp"].includes(file.type) ||
+          file.size > 1024 * 1024,
+      )
+    ) {
+      management.setFormError(
+        "Choose PNG, JPG, or WebP pictures no larger than 1 MB each.",
+      );
+      return;
+    }
+    imageRead.current = true;
+    setReadingImages(true);
+    management.setFormError("");
+    try {
+      const images = await Promise.all(
+        files.map(
+          (file) =>
+            new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () =>
+                resolve({ name: file.name, src: reader.result });
+              reader.onerror = reader.onabort = () =>
+                reject(
+                  new Error("A picture could not be read. Please try again."),
+                );
+              reader.readAsDataURL(file);
+            }),
+        ),
+      );
+      setFields((fields) => ({
+        ...fields,
+        images: [...fields.images, ...images],
+      }));
+      setDirty(true);
+    } catch (error) {
+      management.setFormError(error.message);
+    } finally {
+      imageRead.current = false;
+      setReadingImages(false);
+    }
+  }
   function close() {
     if (
-      !management.busy &&
+      !busy &&
       (!dirty || confirm("Discard the unsaved changes in this form?"))
     )
       management.close();
   }
   function submit(event) {
     event.preventDefault();
+    if (busy || imageRead.current) return;
     const title = fields.title.trim();
     if (!title) {
       management.setFormError("Give this item a title.");
@@ -60,6 +117,7 @@ export default function ItemDialog({ management }) {
     else {
       data.category = fields.category;
       data.url = fields.url.trim();
+      data.images = fields.images;
       if (data.url && !/^https?:\/\//i.test(data.url)) {
         management.setFormError(
           "Use a link beginning with https:// or http://.",
@@ -89,7 +147,7 @@ export default function ItemDialog({ management }) {
             className="icon-button"
             id="close-item-dialog"
             aria-label="Close form"
-            disabled={management.busy}
+            disabled={busy}
             onClick={close}
           >
             ×
@@ -103,7 +161,7 @@ export default function ItemDialog({ management }) {
             maxLength="160"
             required
             autoFocus
-            disabled={management.busy}
+            disabled={busy}
             value={fields.title}
             onChange={change("title")}
           />
@@ -111,7 +169,7 @@ export default function ItemDialog({ management }) {
         <fieldset
           id="task-fields"
           hidden={item.kind !== "task"}
-          disabled={management.busy || item.kind !== "task"}
+          disabled={busy || item.kind !== "task"}
         >
           <legend className="visually-hidden">Task details</legend>
           <label>
@@ -166,7 +224,7 @@ export default function ItemDialog({ management }) {
         <fieldset
           id="resource-fields"
           hidden={item.kind !== "resource"}
-          disabled={management.busy || item.kind !== "resource"}
+          disabled={busy || item.kind !== "resource"}
         >
           <legend className="visually-hidden">Resource details</legend>
           <label>
@@ -192,6 +250,44 @@ export default function ItemDialog({ management }) {
               onChange={change("url")}
             />
           </label>
+          <label>
+            Pictures (optional)
+            <input
+              id="resource-images"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              disabled={readingImages}
+              aria-describedby="resource-images-help"
+              onChange={addImages}
+            />
+          </label>
+          <p id="resource-images-help" className="resource-images-help">
+            Up to 5 pictures. PNG, JPG, or WebP, up to 1 MB each.
+          </p>
+          {readingImages && <p role="status">Reading pictures…</p>}
+          <div className="resource-image-previews">
+            {fields.images.map((image, index) => (
+              <div className="resource-image-preview" key={index}>
+                <img src={image.src} alt={image.name || "Resource picture"} />
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={busy}
+                  aria-label={`Remove picture ${index + 1}`}
+                  onClick={() => {
+                    setFields((fields) => ({
+                      ...fields,
+                      images: fields.images.filter((_, i) => i !== index),
+                    }));
+                    setDirty(true);
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
         </fieldset>
         <label>
           Notes
@@ -200,7 +296,7 @@ export default function ItemDialog({ management }) {
             rows="4"
             maxLength="10000"
             placeholder="What should your teammate know?"
-            disabled={management.busy}
+            disabled={busy}
             value={fields.notes}
             onChange={change("notes")}
           />
@@ -214,7 +310,7 @@ export default function ItemDialog({ management }) {
               type="button"
               id="delete-item"
               className="text-button danger"
-              disabled={management.busy}
+              disabled={busy}
               onClick={management.remove}
             >
               Delete permanently
@@ -225,7 +321,7 @@ export default function ItemDialog({ management }) {
             id="archive-item"
             className="text-button"
             hidden={!item.revision}
-            disabled={management.busy}
+            disabled={busy}
             onClick={() => {
               if (dirty)
                 management.setFormError(
@@ -240,7 +336,7 @@ export default function ItemDialog({ management }) {
             type="button"
             className="notebook-button"
             id="cancel-item"
-            disabled={management.busy}
+            disabled={busy}
             onClick={close}
           >
             Cancel
@@ -249,7 +345,7 @@ export default function ItemDialog({ management }) {
             type="submit"
             className="notebook-button primary"
             id="save-item"
-            disabled={management.busy}
+            disabled={busy}
           >
             Save {item.kind}
           </button>
