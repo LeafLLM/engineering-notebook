@@ -61,6 +61,8 @@ function requestUser(request) {
 }
 
 (async () => {
+    const deployment = JSON.parse(await readFile(resolve(root, "vercel.json"), "utf8"));
+    const securityHeaders = deployment.headers[0].headers;
     const { db } = await createTestDatabase();
     await db.exec(await readFile(resolve(root, "supabase/delete-archived.sql"), "utf8"));
     await db.exec(await readFile(resolve(root, "supabase/team-invitations.sql"), "utf8"));
@@ -68,12 +70,19 @@ function requestUser(request) {
     let delayNextSave = 0;
     const server = http.createServer(async (request, response) => {
         const url = new URL(request.url, "http://localhost");
+        // Browser tests enforce the same policy that Vercel will send in production.
+        for (const header of securityHeaders) response.setHeader(header.key, header.value);
         try {
+            if (url.pathname === '/test-config.js') {
+                response.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-store' });
+                response.end("window.__NOTEBOOK_CONFIG__={url:location.origin+'/mock-supabase',key:'test-only-publishable-key',captchaSiteKey:"
+                    + JSON.stringify(url.searchParams.has("captcha") ? "test-sitekey" : "") + "};");
+                return;
+            }
             if (url.pathname === '/' || url.pathname === '/index.html') {
                 const html = await readFile(resolve(buildRoot, 'index.html'), 'utf8');
                 // Generic tests omit the widget; dedicated CAPTCHA tests mock its SDK.
-                const settings = "<script>window.__NOTEBOOK_CONFIG__={url:location.origin+'/mock-supabase',key:'test-only-publishable-key',captchaSiteKey:"
-                    + JSON.stringify(url.searchParams.has("captcha") ? "test-sitekey" : "") + "};</script>";
+                const settings = '<script src="/test-config.js' + (url.searchParams.has("captcha") ? '?captcha=1' : '') + '"></script>';
                 response.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' });
                 response.end(html.replace('<head>', '<head>' + settings));
                 return;
