@@ -16,7 +16,7 @@ async function createTestDatabase() {
         create role anon noinherit;
         create role authenticated noinherit;
         create schema auth;
-        create table auth.users(id uuid primary key, email text unique);
+        create table auth.users(id uuid primary key, email text unique, email_confirmed_at timestamptz default now());
         create function auth.uid() returns uuid language sql stable as $$
             select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
         $$;

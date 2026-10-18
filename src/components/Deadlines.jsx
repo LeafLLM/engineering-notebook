@@ -1,5 +1,6 @@
 // Upcoming tasks and the team roster in the right-hand sidebar.
 import { useState } from "react";
+import TeamAccess from "./TeamAccess";
 import {
   AssigneeOptions,
   byDue,
@@ -8,7 +9,7 @@ import {
   nameFor,
 } from "./Overview";
 
-export default function Deadlines({ management }) {
+export default function Deadlines({ management, notebookActions }) {
   const [assignee, setAssignee] = useState("all");
   const upcoming = management.items
     .filter(
@@ -73,6 +74,7 @@ export default function Deadlines({ management }) {
             </div>
           ))}
         </div>
+        <TeamAccess management={management} notebookActions={notebookActions} />
       </div>
     </aside>
   );

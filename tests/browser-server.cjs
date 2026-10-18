@@ -18,6 +18,7 @@ const columns = {
     documents: ["id", "team_id", "title", "mechanism", "content", "author_id", "updated_by", "created_at", "updated_at", "revision", "archived"]
 };
 columns.team_items = ["id", "team_id", "kind", "title", "data", "archived", "author_id", "updated_by", "created_at", "updated_at", "revision"];
+columns.team_invites = ["id", "token", "team_id", "email", "role", "invited_by", "created_at", "expires_at", "revoked_at", "accepted_at", "accepted_by"];
 
 function json(response, status, body) {
     response.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
@@ -62,6 +63,7 @@ function requestUser(request) {
 (async () => {
     const { db } = await createTestDatabase();
     await db.exec(await readFile(resolve(root, "supabase/delete-archived.sql"), "utf8"));
+    await db.exec(await readFile(resolve(root, "supabase/team-invitations.sql"), "utf8"));
     let failNextSave = false;
     let delayNextSave = 0;
     const server = http.createServer(async (request, response) => {
@@ -137,6 +139,22 @@ function requestUser(request) {
                 json(response, 200, result.rows[0].id);
                 return;
             }
+            const teamRpc = {
+                create_team_invite: ["select public.create_team_invite($1,$2) as value", ["invite_email", "invite_role"]],
+                revoke_team_invite: ["select public.revoke_team_invite($1) as value", ["invite_id"]],
+                accept_team_invite: ["select public.accept_team_invite($1,$2) as value", ["invite_token", "member_name"]],
+                set_team_member_role: ["select public.set_team_member_role($1,$2,$3) as value", ["member_id", "new_role", "expected_role"]],
+                remove_team_member: ["select public.remove_team_member($1,$2) as value", ["member_id", "expected_role"]],
+            };
+            const rpcName = url.pathname.startsWith("/mock-supabase/rest/v1/rpc/") && url.pathname.split("/").pop();
+            if (Object.hasOwn(teamRpc, rpcName)) {
+                const body = await readJson(request);
+                const user = requestUser(request);
+                const [sql, fields] = teamRpc[rpcName];
+                const result = await asUser(db, user?.id || null, sql, fields.map(field => body[field]));
+                json(response, 200, result.rows[0].value);
+                return;
+            }
             const table = url.pathname.split("/").pop();
             if (!columns[table]) throw new Error("Unknown test table");
             const selected = (url.searchParams.get("select") || "*").split(",");
@@ -155,6 +173,7 @@ function requestUser(request) {
             if (request.method === "GET") {
                 sql = "select " + projection + " from public." + table + where;
                 if (url.searchParams.get("order") === "updated_at.desc") sql += " order by updated_at desc";
+                if (url.searchParams.get("order") === "created_at.desc") sql += " order by created_at desc";
             } else if (request.method === "DELETE" && ["documents", "team_items"].includes(table)) {
                 sql = "delete from public." + table + where + " returning " + projection;
             } else if (["POST", "PATCH"].includes(request.method) && ["documents", "team_items"].includes(table)) {

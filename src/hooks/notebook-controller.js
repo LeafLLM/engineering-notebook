@@ -3,12 +3,15 @@ import { designPrompts } from "../data/design-prompts";
 import { createDocumentStore } from "../data/document-store";
 import { createAccountStore } from "../data/account-store";
 import { captchaSiteKey } from "../data/client";
+import { createTeamAccessStore } from "../data/team-access-store";
+import { clearInvite, inviteToken, pendingInvite } from "../data/invite-link";
 
 // Owns notebook requests, drafts and save sequencing. Components only read the
 // published view and call actions. Refs in useNotebook keep this controller stable.
 export function createNotebookController(client) {
   const store = createDocumentStore(client);
   const accounts = createAccountStore(client);
+  const teamAccess = createTeamAccessStore(client);
   let quill;
   let titleInput;
   const focusTitle = () => titleInput?.focus();
@@ -23,6 +26,8 @@ export function createNotebookController(client) {
     email: "",
     password: "",
     authMode: "sign-in",
+    inviteCode: pendingInvite(),
+    joinStatus: "",
     setupHidden: true,
     teamName: "",
     displayName: "",
@@ -337,6 +342,7 @@ export function createNotebookController(client) {
       model.signInStatus = "Sign in or create an account to get started.";
       model.teamName = "";
       model.displayName = "";
+      model.joinStatus = "";
       publish();
       return;
     }
@@ -490,7 +496,7 @@ export function createNotebookController(client) {
       documents = documents.filter((item) => item.id !== activeId);
       rememberDocument(null);
       resetDraft();
-    model.noticeHidden = true;
+      model.noticeHidden = true;
       status("Archived entry deleted.");
     });
   actions.archive = () =>
@@ -646,6 +652,43 @@ export function createNotebookController(client) {
       publish();
     }
   };
+  actions.acceptInvite = async (event) => {
+    event.preventDefault();
+    if (!user || membership || model.setupHidden || model.teamBusy) return;
+    const token = inviteToken(model.inviteCode);
+    if (!token) {
+      model.joinStatus = "Paste a valid invitation link or code.";
+      publish();
+      return;
+    }
+    const epoch = sessionEpoch;
+    model.teamBusy = true;
+    model.joinStatus = "Joining team…";
+    publish();
+    try {
+      await teamAccess.accept(token, model.displayName);
+      if (epoch !== sessionEpoch) return;
+      clearInvite();
+      model.inviteCode = "";
+      model.joinStatus = "";
+      await applySession({ user }, true);
+    } catch (error) {
+      if (epoch !== sessionEpoch) return;
+      model.joinStatus = ["PGRST202", "42883"].includes(error.code)
+        ? "Invitations aren't set up yet. Ask a manager to finish team access setup."
+        : error.message ||
+          "Could not join. Ask a manager for a new invitation.";
+    } finally {
+      model.teamBusy = false;
+      publish();
+    }
+  };
+  actions.dismissInvite = () => {
+    clearInvite();
+    model.inviteCode = "";
+    model.joinStatus = "";
+    publish();
+  };
   actions.createTeam = async (event) => {
     event.preventDefault();
     if (!user || membership || model.setupHidden || model.teamBusy) return;
@@ -676,7 +719,7 @@ export function createNotebookController(client) {
       await applySession(null);
     });
   actions.retry = () => {
-    if (user) applySession({ user }, true);
+    if (user) return applySession({ user }, true);
     else window.location.reload();
   };
   actions.change = (field, value) => {
@@ -740,6 +783,14 @@ export function createNotebookController(client) {
         }
       };
       window.addEventListener("beforeunload", unload);
+      const receiveInvite = () => {
+        const token = pendingInvite();
+        if (token) {
+          model.inviteCode = token;
+          publish();
+        }
+      };
+      window.addEventListener("hashchange", receiveInvite);
       const timers = new Set();
       const {
         data: { subscription },
@@ -769,6 +820,7 @@ export function createNotebookController(client) {
         subscription.unsubscribe();
         quill.off("text-change", change);
         window.removeEventListener("beforeunload", unload);
+        window.removeEventListener("hashchange", receiveInvite);
       };
     },
   };

@@ -296,6 +296,24 @@ small {
 .account-area {
     margin-top: 20px;
 }
+.team-access {
+    margin-top: 24px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    font-size: 12px;
+}
+.team-access summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.team-access-content, .team-access form, .team-access-members, .invite-result { display: grid; gap: 12px; }
+.team-access-content { margin-top: 16px; }
+.team-access input, .team-access select { font-size: 12px; padding: 8px; }
+.team-access p { margin: 0; overflow-wrap: anywhere; }
+.team-access p:empty { display: none; }
+.team-invites { list-style: none; padding: 0; margin: 0; }
+.team-invites li { display: flex; align-items: start; justify-content: space-between; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.team-invites span { min-width: 0; overflow-wrap: anywhere; }
+.invite-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.team-member-access { display: flex; align-items: end; gap: 12px; }
+.team-member-access label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .notebook-session {
     display: flex;
     align-items: center;

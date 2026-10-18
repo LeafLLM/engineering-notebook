@@ -83,6 +83,7 @@ export default function App() {
           <Deadlines
             key={"deadlines-" + (state.membership?.user_id || "")}
             management={management}
+            notebookActions={actions}
           />
           <div
             className="section documenting"

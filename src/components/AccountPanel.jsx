@@ -36,9 +36,11 @@ export default function AccountPanel({ state, actions }) {
           {signingUp ? "Create your account" : "Make room for better teamwork."}
         </h2>
         <p>
-          {signingUp
-            ? "Create an account, then set up your team's shared workspace."
-            : "Sign in to your team management to work with your teammates."}
+          {state.inviteCode
+            ? "Sign in or create an account with your invited email to join the team."
+            : signingUp
+              ? "Create an account, then set up your team's shared workspace."
+              : "Sign in to your team management to work with your teammates."}
         </p>
         <label htmlFor="account-email">Email</label>
         <input
@@ -158,7 +160,72 @@ export default function AccountPanel({ state, actions }) {
           Sign out
         </button>
       </div>
+      {state.membership && state.inviteCode && (
+        <div className="notebook-notice">
+          <p>
+            You already belong to a team. This invitation cannot move your
+            account.
+          </p>
+          <button
+            type="button"
+            className="text-button"
+            onClick={actions.dismissInvite}
+          >
+            Dismiss invitation
+          </button>
+        </div>
+      )}
       {!state.setupHidden && (
+        <form
+          className="sign-in-panel"
+          onSubmit={actions.acceptInvite}
+          aria-busy={state.teamBusy}
+        >
+          <h2>Join a team</h2>
+          <label htmlFor="invite-code">Invitation link or code</label>
+          <input
+            id="invite-code"
+            required
+            value={state.inviteCode}
+            disabled={state.busy}
+            onChange={(event) =>
+              actions.change("inviteCode", event.target.value)
+            }
+          />
+          <label htmlFor="join-display-name">Display name</label>
+          <input
+            id="join-display-name"
+            autoComplete="name"
+            required
+            maxLength={80}
+            pattern=".*\S.*"
+            value={state.displayName}
+            disabled={state.busy}
+            onChange={(event) =>
+              actions.change("displayName", event.target.value)
+            }
+          />
+          <button className="notebook-button primary" disabled={state.busy}>
+            Join team
+          </button>
+          {state.inviteCode && (
+            <button
+              type="button"
+              className="text-button"
+              disabled={state.busy}
+              onClick={actions.dismissInvite}
+            >
+              Dismiss invitation
+            </button>
+          )}
+          {state.joinStatus && (
+            <p role="status" aria-live="polite">
+              {state.joinStatus}
+            </p>
+          )}
+        </form>
+      )}
+      {!state.setupHidden && !state.inviteCode && (
         <form
           className="sign-in-panel"
           onSubmit={actions.createTeam}
@@ -169,10 +236,7 @@ export default function AccountPanel({ state, actions }) {
             Your account is ready. Create a shared workspace to become its first
             manager.
           </p>
-          <p>
-            Joining an existing team? Ask its owner to add your account, then
-            choose Try again below.
-          </p>
+          <p>Joining an existing team? Use its invitation link above.</p>
           <label htmlFor="member-display-name">Your name</label>
           <input
             id="member-display-name"
