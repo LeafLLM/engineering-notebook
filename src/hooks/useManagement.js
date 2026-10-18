@@ -99,6 +99,8 @@ export function useManagement(member) {
         ? structuredClone(item)
         : { id: crypto.randomUUID(), kind, team_id: member.team_id, data: {} },
     );
+    // Someone may have accepted an invitation since this page loaded.
+    if (kind === "task") refresh();
   }
 
   async function save(record) {

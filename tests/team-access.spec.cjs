@@ -212,3 +212,49 @@ test("manager can revoke links; last-manager demotion/removal and wrong-email jo
     await context.close();
   }
 });
+
+test("newly invited managers are assignable without reloading the inviter's page", async ({
+  page,
+  browser,
+}) => {
+  await signIn(page);
+  await openAccess(page);
+  const link = await invite(page, "unassigned@example.test", "manager");
+  const context = await browser.newContext();
+  const teammate = await context.newPage();
+  try {
+    await signIn(teammate, "unassigned@example.test");
+    await teammate.getByLabel("Invitation link or code").fill(link);
+    await teammate
+      .getByLabel("Display name", { exact: true })
+      .fill("New manager");
+    await teammate
+      .getByRole("button", { name: "Join team", exact: true })
+      .click();
+    await expect(teammate.locator("#notebook-account")).toHaveText(
+      "New manager · Engineering team",
+    );
+    await expect(teammate.locator(".team-access summary")).toBeVisible();
+
+    // Keep the inviter's existing page open: opening a task refreshes its roster.
+    await page.locator('[data-new="task"]').click();
+    await expect(
+      page.locator("#item-assignee option").filter({ hasText: "New manager" }),
+    ).toHaveCount(1);
+    const managerId = await page
+      .locator("#item-assignee option")
+      .filter({ hasText: "New manager" })
+      .getAttribute("value");
+    await page.locator("#item-assignee").selectOption(managerId);
+    await page.locator("#item-title").fill("Task for invited manager");
+    await page.locator("#save-item").click();
+    await expect(page.locator("#item-dialog")).toHaveCount(0);
+    await expect(
+      page
+        .locator("#task-table-body tr")
+        .filter({ hasText: "Task for invited manager" }),
+    ).toContainText("New manager");
+  } finally {
+    await context.close();
+  }
+});
